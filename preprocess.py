@@ -139,50 +139,63 @@ def build_save_in_shards_using_shards_size(src_corpus, tgt_corpus, fields,
 
 def build_save_dataset(corpus_type, fields, opt):
     """ Building and saving the dataset """
-    assert corpus_type in ['train', 'valid']
+    assert corpus_type in ['train', 'valid', 'monitor']
 
     if corpus_type == 'train':
-        src_corpus = opt.train_src
-        tgt_corpus = opt.train_tgt
+        src_corpus = [opt.train_src]
+        tgt_corpus = [opt.train_tgt]
+    elif corpus_type == 'valid':
+        src_corpus = [opt.valid_src]
+        tgt_corpus = [opt.valid_tgt]
     else:
-        src_corpus = opt.valid_src
-        tgt_corpus = opt.valid_tgt
+        assert len(opt.monitor_src) == len(opt.monitor_tgt)
+        src_corpus = opt.monitor_src
+        tgt_corpus = opt.monitor_tgt
 
-    if (opt.shard_size > 0):
-        return build_save_in_shards_using_shards_size(src_corpus,
-                                                      tgt_corpus,
-                                                      fields,
-                                                      corpus_type,
-                                                      opt)
+    pt_files = []
+    for i, (src, tgt) in enumerate(zip(src_corpus, tgt_corpus)):
+        if "monitor" in corpus_type: 
+            fname = src.split("/" if "/" in src else "\\")[-1].split(".")[0].replace("_src", "")
+            corpus_type = "monitor_{}".format(fname)
 
-    # For data_type == 'img' or 'audio', currently we don't do
-    # preprocess sharding. We only build a monolithic dataset.
-    # But since the interfaces are uniform, it would be not hard
-    # to do this should users need this feature.
-    dataset = inputters.build_dataset(
-        fields, opt.data_type,
-        src_path=src_corpus,
-        tgt_path=tgt_corpus,
-        src_dir=opt.src_dir,
-        src_seq_length=opt.src_seq_length,
-        tgt_seq_length=opt.tgt_seq_length,
-        src_seq_length_trunc=opt.src_seq_length_trunc,
-        tgt_seq_length_trunc=opt.tgt_seq_length_trunc,
-        dynamic_dict=opt.dynamic_dict,
-        sample_rate=opt.sample_rate,
-        window_size=opt.window_size,
-        window_stride=opt.window_stride,
-        window=opt.window,
-        image_channel_size=opt.image_channel_size)
+        if (opt.shard_size > 0):
+            pt_file = build_save_in_shards_using_shards_size(src,
+                                                          tgt,
+                                                          fields,
+                                                          corpus_type,
+                                                          opt)
+            pt_files.extend(pt_file)
 
-    # We save fields in vocab.pt seperately, so make it empty.
-    dataset.fields = []
+        else:
+            # For data_type == 'img' or 'audio', currently we don't do
+            # preprocess sharding. We only build a monolithic dataset.
+            # But since the interfaces are uniform, it would be not hard
+            # to do this should users need this feature.
+            dataset = inputters.build_dataset(
+                fields, opt.data_type,
+                src_path=src,
+                tgt_path=tgt,
+                src_dir=opt.src_dir,
+                src_seq_length=opt.src_seq_length,
+                tgt_seq_length=opt.tgt_seq_length,
+                src_seq_length_trunc=opt.src_seq_length_trunc,
+                tgt_seq_length_trunc=opt.tgt_seq_length_trunc,
+                dynamic_dict=opt.dynamic_dict,
+                sample_rate=opt.sample_rate,
+                window_size=opt.window_size,
+                window_stride=opt.window_stride,
+                window=opt.window,
+                image_channel_size=opt.image_channel_size)
 
-    pt_file = "{:s}.{:s}.pt".format(opt.save_data, corpus_type)
-    logger.info(" * saving %s dataset to %s." % (corpus_type, pt_file))
-    torch.save(dataset, pt_file)
+            # We save fields in vocab.pt seperately, so make it empty.
+            dataset.fields = []
 
-    return [pt_file]
+            pt_file = "{:s}.{:s}.pt".format(opt.save_data, corpus_type)
+            logger.info(" * saving %s dataset to %s." % (corpus_type, pt_file))
+            torch.save(dataset, pt_file)
+            pt_files.append(pt_file)
+
+    return pt_files
 
 
 def build_save_vocab(train_dataset, fields, opt):
@@ -229,6 +242,10 @@ def main():
 
     logger.info("Building & saving validation data...")
     build_save_dataset('valid', fields, opt)
+
+    if not (opt.monitor_tgt is None and opt.monitor_src is None):
+        logger.info("Building & saving validation data...")
+        build_save_dataset('monitor', fields, opt)
 
     logger.info("Building & saving vocabulary...")
     build_save_vocab(train_dataset_files, fields, opt)

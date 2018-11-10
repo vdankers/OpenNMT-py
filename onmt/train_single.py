@@ -131,18 +131,27 @@ def main(opt, device_id):
                             optim, data_type, model_saver=model_saver)
 
     def train_iter_fct(): return build_dataset_iter(
-        lazily_load_dataset("train", opt), fields, opt)
+        lazily_load_dataset("train", opt, True), fields, opt)
 
     def valid_iter_fct(): return build_dataset_iter(
         lazily_load_dataset("valid", opt), fields, opt, is_train=False)
+
+    def monitor_iter_fct():
+        monitor_data = dict()
+        for src, tgt in zip(opt.monitor_src, opt.monitor_tgt):
+            fname = src.split("/" if "/" in src else "\\")[-1].split(".")[0].replace("_src", "")
+            monitor_data[fname] = build_dataset_iter(
+                lazily_load_dataset("monitor", opt, fname), fields, opt, is_train=False
+            )
+        return monitor_data
 
     # Do training.
     if len(opt.gpu_ranks):
         logger.info('Starting training on GPU: %s' % opt.gpu_ranks)
     else:
         logger.info('Starting training on CPU, could be very slow')
-    trainer.train(train_iter_fct, valid_iter_fct, opt.train_steps,
-                  opt.valid_steps)
+    trainer.train(train_iter_fct, valid_iter_fct, monitor_iter_fct, opt.train_steps,
+                  opt.valid_steps, opt.monitor_steps)
 
     if opt.tensorboard:
         trainer.report_manager.tensorboard_writer.close()

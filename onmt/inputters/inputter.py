@@ -539,7 +539,7 @@ def build_dataset_iter(datasets, fields, opt, is_train=True):
                            device, is_train)
 
 
-def lazily_load_dataset(corpus_type, opt):
+def lazily_load_dataset(corpus_type, opt, fname=""):
     """
     Dataset generator. Don't do extra stuff here, like printing,
     because they will be postponed to the first loading time.
@@ -549,11 +549,14 @@ def lazily_load_dataset(corpus_type, opt):
     Returns:
         A list of dataset, the dataset(s) are lazily loaded.
     """
-    assert corpus_type in ["train", "valid"]
+    assert corpus_type in ["train", "valid", "monitor"]
+    if corpus_type == "monitor":
+        corpus_type = "{}_{}".format(corpus_type, fname)
 
-    def _lazy_dataset_loader(pt_file, corpus_type):
+    def _lazy_dataset_loader(pt_file, corpus_type, log=False):
         dataset = torch.load(pt_file)
-        logger.info('Loading %s dataset from %s, number of examples: %d' %
+        if log:
+            logger.info('Loading %s dataset from %s, number of examples: %d' %
                     (corpus_type, pt_file, len(dataset)))
         return dataset
 

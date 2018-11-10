@@ -78,7 +78,7 @@ class ReportMgrBase(object):
         """ To be overridden """
         raise NotImplementedError()
 
-    def report_step(self, lr, step, train_stats=None, valid_stats=None):
+    def report_step(self, lr, step, train_stats=None, valid_stats=None, monitor_stats=None):
         """
         Report stats of a step
 
@@ -88,7 +88,7 @@ class ReportMgrBase(object):
             lr(float): current learning rate
         """
         self._report_step(
-            lr, step, train_stats=train_stats, valid_stats=valid_stats)
+            lr, step, train_stats=train_stats, valid_stats=valid_stats, monitor_stats=monitor_stats)
 
     def _report_step(self, *args, **kwargs):
         raise NotImplementedError()
@@ -130,7 +130,7 @@ class ReportMgr(ReportMgrBase):
 
         return report_stats
 
-    def _report_step(self, lr, step, train_stats=None, valid_stats=None):
+    def _report_step(self, lr, step, train_stats=None, valid_stats=None, monitor_stats=None):
         """
         See base class method `ReportMgrBase.report_step`.
         """
@@ -144,10 +144,17 @@ class ReportMgr(ReportMgrBase):
                                        step)
 
         if valid_stats is not None:
-            self.log('Validation perplexity: %g' % valid_stats.ppl())
-            self.log('Validation accuracy: %g' % valid_stats.accuracy())
+            self.log('Step {}, Validation, acc: {:.4f}; seqacc: {:.4f}; ppl: {:.4f}'.format(
+                step, valid_stats.accuracy(), valid_stats.sequence_accuracy(), valid_stats.ppl())
+            )
+            self.maybe_log_tensorboard(
+                valid_stats, "valid", lr, step
+            )
 
-            self.maybe_log_tensorboard(valid_stats,
-                                       "valid",
-                                       lr,
-                                       step)
+        if monitor_stats is not None:
+            for name, stats in monitor_stats.items():
+                self.log('Step {}, Monitor {}, acc: {:.4f}; seqacc: {:.4f}; ppl: {:.4f}'.format(
+                    step, name, stats.accuracy(), stats.sequence_accuracy(), stats.ppl())
+                )
+                self.log(stats.n_sents)
+

@@ -112,7 +112,7 @@ class Trainer(object):
         # Set model in training mode.
         self.model.train()
 
-    def train(self, train_iter_fct, valid_iter_fct, train_steps, valid_steps):
+    def train(self, train_iter_fct, valid_iter_fct, monitor_iter_fct, train_steps, valid_steps, monitor_steps):
         """
         The main training loops.
         by iterating over training data (i.e. `train_iter_fct`)
@@ -185,20 +185,31 @@ class Trainer(object):
                         accum = 0
                         normalization = 0
                         if (step % valid_steps == 0):
-                            if self.gpu_verbose_level > 0:
-                                logger.info('GpuRank %d: validate step %d'
-                                            % (self.gpu_rank, step))
+                            # if self.gpu_verbose_level > 0:
+                            #     logger.info('GpuRank %d: validate step %d'
+                            #                 % (self.gpu_rank, step))
                             valid_iter = valid_iter_fct()
+                            
                             valid_stats = self.validate(valid_iter)
-                            if self.gpu_verbose_level > 0:
-                                logger.info('GpuRank %d: gather valid stat \
-                                            step %d' % (self.gpu_rank, step))
+                            # if self.gpu_verbose_level > 0:
+                            #     logger.info('GpuRank %d: gather valid stat \
+                            #                 step %d' % (self.gpu_rank, step))
                             valid_stats = self._maybe_gather_stats(valid_stats)
-                            if self.gpu_verbose_level > 0:
-                                logger.info('GpuRank %d: report stat step %d'
-                                            % (self.gpu_rank, step))
                             self._report_step(self.optim.learning_rate,
                                               step, valid_stats=valid_stats)
+
+                        if (step % monitor_steps == 0):
+                            monitor_iters = monitor_iter_fct()
+                            monitor_stats = dict()
+                            for name, it in monitor_iters.items():
+                                stats = self.validate(it)
+                                stats = self._maybe_gather_stats(stats)
+                                monitor_stats[name] = stats
+                            # if self.gpu_verbose_level > 0:
+                            #     logger.info('GpuRank %d: report stat step %d'
+                            #                 % (self.gpu_rank, step))
+                            self._report_step(self.optim.learning_rate,
+                                              step, monitor_stats=monitor_stats)
 
                         if self.gpu_rank == 0:
                             self._maybe_save(step)
@@ -357,7 +368,7 @@ class Trainer(object):
                 multigpu=self.n_gpu > 1)
 
     def _report_step(self, learning_rate, step, train_stats=None,
-                     valid_stats=None):
+                     valid_stats=None, monitor_stats=None):
         """
         Simple function to report stats (if report_manager is set)
         see `onmt.utils.ReportManagerBase.report_step` for doc
@@ -365,7 +376,7 @@ class Trainer(object):
         if self.report_manager is not None:
             return self.report_manager.report_step(
                 learning_rate, step, train_stats=train_stats,
-                valid_stats=valid_stats)
+                valid_stats=valid_stats, monitor_stats=monitor_stats)
 
     def _maybe_save(self, step):
         """

@@ -158,13 +158,26 @@ class LossComputeBase(nn.Module):
             :obj:`onmt.utils.Statistics` : statistics for this batch.
         """
         pred = scores.max(1)[1]
-        non_padding = target.ne(self.padding_idx)
-        num_correct = pred.eq(target) \
+        gtruth = target.view(-1)
+        non_padding = gtruth.ne(self.padding_idx)
+        
+        num_correct = pred.eq(gtruth) \
                           .masked_select(non_padding) \
                           .sum() \
                           .item()
+
+        # Now compute statistics needed for sequence accuracy,
+        # to do so, reshape the target
+        pred = pred.reshape(target.shape)
+
+        non_padding = non_padding.reshape(target.shape)
+        #pred = target
+        sents_correct = pred.eq(target) * non_padding # torch.max(pred.eq(target), padding)
+        sents_correct = torch.sum(torch.sum(sents_correct, 0).eq(torch.sum(non_padding, 0))).item()
+        n_sents = pred.shape[1]
+
         num_non_padding = non_padding.sum().item()
-        return onmt.utils.Statistics(loss.item(), num_non_padding, num_correct)
+        return onmt.utils.Statistics(loss.item(), num_non_padding, num_correct, n_sents, sents_correct)
 
     def _bottle(self, _v):
         return _v.view(-1, _v.size(2))
@@ -241,9 +254,8 @@ class NMTLossCompute(LossComputeBase):
         else:
             scores = self.generator(bottled_output)
         gtruth = target.view(-1)
-
         loss = self.criterion(scores, gtruth)
-        stats = self._stats(loss.clone(), scores, gtruth)
+        stats = self._stats(loss.clone(), scores, target)
 
         return loss, stats
 
