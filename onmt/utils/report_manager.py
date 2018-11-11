@@ -156,5 +156,3 @@ class ReportMgr(ReportMgrBase):
                 self.log('Step {}, Monitor {}, acc: {:.4f}; seqacc: {:.4f}; ppl: {:.4f}'.format(
                     step, name, stats.accuracy(), stats.sequence_accuracy(), stats.ppl())
                 )
-                self.log(stats.n_sents)
-
