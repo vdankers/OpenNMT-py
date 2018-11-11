@@ -165,9 +165,9 @@ def preprocess_opts(parser):
     group.add_argument('-valid_tgt', required=True,
                        help="Path to the validation target data")
     group.add_argument('-monitor_src', required=False, nargs='*',
-                       help="Path to the validation source data")
+                       help="Path to the monitor source data")
     group.add_argument('-monitor_tgt', required=False, nargs='*',
-                       help="Path to the validation target data")
+                       help="Path to the monitor target data")
 
     group.add_argument('-src_dir', default="",
                        help="Source directory for image or audio files.")
@@ -262,9 +262,9 @@ def train_opts(parser):
                        help="""Path prefix to the ".train.pt" and
                        ".valid.pt" file path from preprocess.py""")
     group.add_argument('-monitor_src', required=False, nargs='*',
-                       help="Path to the validation source data")
+                       help="Path to the monitor source data")
     group.add_argument('-monitor_tgt', required=False, nargs='*',
-                       help="Path to the validation target data")
+                       help="Path to the monitor target data")
 
     group.add_argument('-save_model', default='model',
                        help="""Model filename (the model will be saved as
@@ -349,7 +349,7 @@ def train_opts(parser):
     group.add_argument('-valid_steps', type=int, default=10000,
                        help='Perfom validation every X steps')
     group.add_argument('-monitor_steps', type=int, default=500,
-                       help='Perfom monitor validation every X steps')
+                       help='Perfom monitor dataset validation every X steps')
     group.add_argument('-valid_batch_size', type=int, default=32,
                        help='Maximum batch size for validation')
     group.add_argument('-max_generator_batches', type=int, default=32,
